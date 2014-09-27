@@ -54,7 +54,7 @@
 	},
 
 	pushState: function(e){
-		if((!e.meta && Browser.platform.mac) || (!e.control && !Browser.platform.mac)){
+		if((!e.meta && Browser.Platform.mac) || (!e.control && !Browser.Platform.mac)){
 			(e).preventDefault();
 			var url = e.target.get('href');
 			if(History.getPath() != url)
@@ -63,7 +63,7 @@
 	},
 
 	isMac: function(){
-		return Browser.platform.mac
+		return Browser.Platform.mac
 	},
 
 	createLayout: function(){
@@ -137,32 +137,15 @@
 	createPages: function(){
 		var self = this;
 
-		var pages = [];
 		Object.each(Page, function(page_class, class_name){
 			var pg = new Page[class_name](self, {});
 			self.pages[class_name] = pg;
 
-			pages.include({
-				'order': pg.order,
-				'name': class_name,
-				'class': pg
-			});
+			$(pg).inject(self.content);
 		});
-
-		pages.stableSort(self.sortPageByOrder).each(function(page){
-			page['class'].load();
-			self.fireEvent('load'+page.name);
-			$(page['class']).inject(self.content);
-		});
-
-		delete pages;
 
 		self.fireEvent('load');
 
-	},
-
-	sortPageByOrder: function(a, b){
-		return (a.order || 100) - (b.order || 100)
 	},
 
 	openPage: function(url) {
@@ -272,18 +255,11 @@
 
 		(function(){
 
-			var onFailure = function(){
-				self.checkAvailable.delay(1000, self, [delay, onAvailable]);
-				self.fireEvent('unload');
-			}
-
-			var request = Api.request('app.available', {
-				'timeout': 2000,
-				'onTimeout': function(){
-					request.cancel();
-					onFailure();
+			Api.request('app.available', {
+				'onFailure': function(){
+					self.checkAvailable.delay(1000, self, [delay, onAvailable]);
+					self.fireEvent('unload');
 				},
-				'onFailure': onFailure,
 				'onSuccess': function(){
 					if(onAvailable)
 						onAvailable();
@@ -329,7 +305,7 @@
 
 		var url = 'http://www.dereferer.org/?' + el.get('href');
 
-		if(el.get('target') == '_blank' || (e.meta && Browser.platform.mac) || (e.control && !Browser.platform.mac))
+		if(el.get('target') == '_blank' || (e.meta && Browser.Platform.mac) || (e.control && !Browser.Platform.mac))
 			window.open(url);
 		else
 			window.location = url;
@@ -341,8 +317,8 @@
 
 		return new Element('div.group_userscript').adopt(
 			new Element('a.userscript.button', {
-				'text': 'Install extension',
-				'href': 'https://couchpota.to/extension/',
+				'text': 'Install userscript',
+				'href': Api.createUrl('userscript.get')+randomString()+'/couchpotato.user.js',
 				'target': '_blank'
 			}),
 			new Element('span.or[text=or]'),
@@ -388,15 +364,15 @@
 
 		if(!on_complete && typeOf(args) == 'function'){
 			on_complete = args;
-			args = [];
+			args = {};
 		}
 
 		// Create parallel callback
 		var callbacks = [];
-		self.global_events[name].each(function(handle){
+		self.global_events[name].each(function(handle, nr){
 
 			callbacks.push(function(callback){
-				var results = handle.apply(handle, args || []);
+				var results = handle(args || {});
 				callback(null, results || null);
 			});
 

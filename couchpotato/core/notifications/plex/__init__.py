@@ -1,7 +1,6 @@
 from .main import Plex
 
-
-def autoload():
+def start():
     return Plex()
 
 config = [{

@@ -1,9 +1,8 @@
 from datetime import timedelta, datetime
-from urlparse import urlparse
-import traceback
-
 from couchpotato.core.helpers.variable import cleanHost
 from couchpotato import CPLog
+from urlparse import urlparse
+import traceback
 
 
 try:

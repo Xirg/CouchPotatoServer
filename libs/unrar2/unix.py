@@ -21,37 +21,24 @@
 # SOFTWARE.
 
 # Unix version uses unrar command line executable
-import platform
-import stat
+
 import subprocess
 import gc
-import os
-import os.path
-import time
-import re
+
+import os, os.path
+import time, re
 
 from rar_exceptions import *
-
 
 class UnpackerNotInstalled(Exception): pass
 
 rar_executable_cached = None
-rar_executable_version = None
 
-osx_unrar = os.path.join(os.path.dirname(__file__), 'unrar')
-if os.path.isfile(osx_unrar) and 'darwin' in platform.platform().lower():
-    try:
-        st = os.stat(osx_unrar)
-        os.chmod(osx_unrar, st.st_mode | stat.S_IEXEC)
-    except:
-        pass
-
-def call_unrar(params, custom_path = None):
+def call_unrar(params):
     "Calls rar/unrar command line executable, returns stdout pipe"
     global rar_executable_cached
     if rar_executable_cached is None:
-        for command in (custom_path, 'unrar', 'rar', osx_unrar):
-            if not command: continue
+        for command in ('unrar', 'rar', os.path.join(os.path.dirname(__file__), 'unrar')):
             try:
                 subprocess.Popen([command], stdout = subprocess.PIPE)
                 rar_executable_cached = command
@@ -71,10 +58,10 @@ def call_unrar(params, custom_path = None):
 
 class RarFileImplementation(object):
 
-    def init(self, password = None, custom_path = None):
-        global rar_executable_version
+    def init(self, password = None):
         self.password = password
-        self.custom_path = custom_path
+
+
 
         stdoutdata, stderrdata = self.call('v', []).communicate()
 
@@ -86,42 +73,18 @@ class RarFileImplementation(object):
         accum = []
         source = iter(stdoutdata.splitlines())
         line = ''
-        while not (line.startswith('UNRAR')):
+        while not (line.startswith('Comment:') or line.startswith('Pathname/Comment')):
+            if line.strip().endswith('is not RAR archive'):
+                raise InvalidRARArchive
             line = source.next()
-        signature = line
-        # The code below is mighty flaky
-        # and will probably crash on localized versions of RAR
-        # but I see no safe way to rewrite it using a CLI tool
-        if signature.startswith("UNRAR 4"):
-            rar_executable_version = 4
-            while not (line.startswith('Comment:') or line.startswith('Pathname/Comment')):
-                if line.strip().endswith('is not RAR archive'):
-                    raise InvalidRARArchive
-                line = source.next()
-            while not line.startswith('Pathname/Comment'):
-                accum.append(line.rstrip('\n'))
-                line = source.next()
-            if len(accum):
-                accum[0] = accum[0][9:] # strip out "Comment:" part
-                self.comment = '\n'.join(accum[:-1])
-            else:
-                self.comment = None
-        elif signature.startswith("UNRAR 5"):
-            rar_executable_version = 5
+        while not line.startswith('Pathname/Comment'):
+            accum.append(line.rstrip('\n'))
             line = source.next()
-            while not line.startswith('Archive:'):
-                if line.strip().endswith('is not RAR archive'):
-                    raise InvalidRARArchive
-                accum.append(line.rstrip('\n'))
-                line = source.next()
-            if len(accum):
-                self.comment = '\n'.join(accum[:-1]).strip()
-            else:
-                self.comment = None
+        if len(accum):
+            accum[0] = accum[0][9:]
+            self.comment = '\n'.join(accum[:-1])
         else:
-            raise UnpackerNotInstalled("Unsupported RAR version, expected 4.x or 5.x, found: "
-                    + signature.split(" ")[1])
-
+            self.comment = None
 
     def escaped_password(self):
         return '-' if self.password == None else self.password
@@ -130,12 +93,11 @@ class RarFileImplementation(object):
     def call(self, cmd, options = [], files = []):
         options2 = options + ['p' + self.escaped_password()]
         soptions = ['-' + x for x in options2]
-        return call_unrar([cmd] + soptions + ['--', self.archiveName] + files, self.custom_path)
+        return call_unrar([cmd] + soptions + ['--', self.archiveName] + files)
 
     def infoiter(self):
 
-        command = "v" if rar_executable_version == 4 else "l"
-        stdoutdata, stderrdata = self.call(command, ['c-']).communicate()
+        stdoutdata, stderrdata = self.call('v', ['c-']).communicate()
 
         for line in stderrdata.splitlines():
             if line.strip().startswith("Cannot open"):
@@ -144,48 +106,31 @@ class RarFileImplementation(object):
         accum = []
         source = iter(stdoutdata.splitlines())
         line = ''
-        while not line.startswith('-----------'):
+        while not line.startswith('--------------'):
             if line.strip().endswith('is not RAR archive'):
                 raise InvalidRARArchive
-            if line.startswith("CRC failed") or line.startswith("Checksum error"):
+            if line.find("CRC failed") >= 0:
                 raise IncorrectRARPassword
             line = source.next()
         line = source.next()
         i = 0
         re_spaces = re.compile(r"\s+")
-        if rar_executable_version == 4:
-            while not line.startswith('-----------'):
-                accum.append(line)
-                if len(accum) == 2:
-                    data = {}
-                    data['index'] = i
-                    # asterisks mark password-encrypted files
-                    data['filename'] = accum[0].strip().lstrip("*") # asterisks marks password-encrypted files
-                    fields = re_spaces.split(accum[1].strip())
-                    data['size'] = int(fields[0])
-                    attr = fields[5]
-                    data['isdir'] = 'd' in attr.lower()
-                    data['datetime'] = time.strptime(fields[3] + " " + fields[4], '%d-%m-%y %H:%M')
-                    data['comment'] = None
-                    yield data
-                    accum = []
-                    i += 1
-                line = source.next()
-        elif rar_executable_version == 5:
-            while not line.startswith('-----------'):
-                fields = line.strip().lstrip("*").split()
+        while not line.startswith('--------------'):
+            accum.append(line)
+            if len(accum) == 2:
                 data = {}
                 data['index'] = i
-                data['filename'] = " ".join(fields[4:])
-                data['size'] = int(fields[1])
-                attr = fields[0]
+                data['filename'] = accum[0].strip()
+                info = re_spaces.split(accum[1].strip())
+                data['size'] = int(info[0])
+                attr = info[5]
                 data['isdir'] = 'd' in attr.lower()
-                data['datetime'] = time.strptime(fields[2] + " " + fields[3], '%d-%m-%y %H:%M')
+                data['datetime'] = time.strptime(info[3] + " " + info[4], '%d-%m-%y %H:%M')
                 data['comment'] = None
                 yield data
+                accum = []
                 i += 1
-                line = source.next()
-
+            line = source.next()
 
     def read_files(self, checker):
         res = []
@@ -206,7 +151,7 @@ class RarFileImplementation(object):
         if overwrite:
             options.append('o+')
         else:
-            options.append('o-')
+			options.append('o-')
         if not path.endswith(os.sep):
             path += os.sep
         names = []
@@ -220,7 +165,7 @@ class RarFileImplementation(object):
         names.append(path)
         proc = self.call(command, options, names)
         stdoutdata, stderrdata = proc.communicate()
-        if stderrdata.find("CRC failed") >= 0 or stderrdata.find("Checksum error") >= 0:
+        if stderrdata.find("CRC failed") >= 0:
             raise IncorrectRARPassword
         return res
 
