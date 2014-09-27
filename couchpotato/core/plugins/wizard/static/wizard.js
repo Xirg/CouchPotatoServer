@@ -2,7 +2,6 @@ Page.Wizard = new Class({
 
 	Extends: Page.Settings,
 
-	order: 70,
 	name: 'wizard',
 	has_tab: false,
 	wizard_only: true,
@@ -36,11 +35,11 @@ Page.Wizard = new Class({
 		},
 		'automation': {
 			'title': 'Easily add movies to your wanted list!',
-			'description': 'You can easily add movies from your favorite movie site, like IMDB, Rotten Tomatoes, Apple Trailers and more. Just install the extension or drag the bookmarklet to your bookmarks.' +
+			'description': 'You can easily add movies from your favorite movie site, like IMDB, Rotten Tomatoes, Apple Trailers and more. Just install the userscript or drag the bookmarklet to your browsers bookmarks.' +
 				'<br />Once installed, just click the bookmarklet on a movie page and watch the magic happen ;)',
 			'content': function(){
 				return App.createUserscriptButtons().setStyles({
-					'background-image': "url('https://couchpota.to/media/images/userscript.gif')"
+					'background-image': "url('"+App.createUrl('static/plugin/userscript/userscript.png')+"')"
 				})
 			}
 		},
@@ -90,7 +89,7 @@ Page.Wizard = new Class({
 			self.parent(action, params);
 
 			self.addEvent('create', function(){
-				self.orderGroups();
+				self.order();
 			});
 
 			self.initialized = true;
@@ -106,16 +105,16 @@ Page.Wizard = new Class({
 			}).delay(1)
 	},
 
-	orderGroups: function(){
+	order: function(){
 		var self = this;
 
 		var form = self.el.getElement('.uniForm');
 		var tabs = self.el.getElement('.tabs');
 
-		self.groups.each(function(group){
+		self.groups.each(function(group, nr){
 
 			if(self.headers[group]){
-				var group_container = new Element('.wgroup_'+group, {
+				group_container = new Element('.wgroup_'+group, {
 					'styles': {
 						'opacity': 0.2
 					},
@@ -130,7 +129,7 @@ Page.Wizard = new Class({
 					})
 				}
 
-				var content = self.headers[group].content;
+				var content = self.headers[group].content
 				group_container.adopt(
 					new Element('h1', {
 						'text': self.headers[group].title
@@ -145,7 +144,7 @@ Page.Wizard = new Class({
 			var tab_navigation = tabs.getElement('.t_'+group);
 
 			if(!tab_navigation && self.headers[group] && self.headers[group].include){
-				tab_navigation = [];
+				tab_navigation = []
 				self.headers[group].include.each(function(inc){
 					tab_navigation.include(tabs.getElement('.t_'+inc));
 				})
@@ -158,7 +157,7 @@ Page.Wizard = new Class({
 
 					self.headers[group].include.each(function(inc){
 						self.el.getElement('.tab_'+inc).inject(group_container);
-					});
+					})
 
 					new Element('li.t_'+group).adopt(
 						new Element('a', {
@@ -216,9 +215,9 @@ Page.Wizard = new Class({
 				self.groups.each(function(groups2, nr2){
 					var t2 = self.el.getElement('.t_'+groups2);
 						t2[nr2 > nr ? 'removeClass' : 'addClass' ]('done');
-				});
+				})
 				g.tween('opacity', 1);
-			};
+			}
 
 			if(nr == 0)
 				func();

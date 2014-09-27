@@ -1,14 +1,11 @@
+from axl.axel import Event
+from couchpotato.core.helpers.variable import mergeDicts, natcmp
+from couchpotato.core.logger import CPLog
 import threading
 import traceback
 
-from axl.axel import Event
-from couchpotato.core.helpers.variable import mergeDicts, natsortKey
-from couchpotato.core.logger import CPLog
-
-
 log = CPLog(__name__)
 events = {}
-
 
 def runHandler(name, handler, *args, **kwargs):
     try:
@@ -16,7 +13,6 @@ def runHandler(name, handler, *args, **kwargs):
     except:
         from couchpotato.environment import Env
         log.error('Error in event "%s", that wasn\'t caught: %s%s', (name, traceback.format_exc(), Env.all() if not Env.get('dev') else ''))
-
 
 def addEvent(name, handler, priority = 100):
 
@@ -31,7 +27,7 @@ def addEvent(name, handler, priority = 100):
             has_parent = hasattr(handler, 'im_self')
             parent = None
             if has_parent:
-                parent = handler.__self__
+                parent = handler.im_self
                 bc = hasattr(parent, 'beforeCall')
                 if bc: parent.beforeCall(handler)
 
@@ -52,19 +48,22 @@ def addEvent(name, handler, priority = 100):
         'priority': priority,
     })
 
+def removeEvent(name, handler):
+    e = events[name]
+    e -= handler
 
 def fireEvent(name, *args, **kwargs):
-    if name not in events: return
+    if not events.has_key(name): return
 
     #log.debug('Firing event %s', name)
     try:
 
         options = {
-            'is_after_event': False,  # Fire after event
-            'on_complete': False,  # onComplete event
-            'single': False,  # Return single handler
-            'merge': False,  # Merge items
-            'in_order': False,  # Fire them in specific order, waits for the other to finish
+            'is_after_event': False, # Fire after event
+            'on_complete': False, # onComplete event
+            'single': False, # Return single handler
+            'merge': False, # Merge items
+            'in_order': False, # Fire them in specific order, waits for the other to finish
         }
 
         # Do options
@@ -90,7 +89,7 @@ def fireEvent(name, *args, **kwargs):
 
         else:
 
-            e = Event(name = name, threads = 10, exc_info = True, traceback = True)
+            e = Event(name = name, threads = 10, exc_info = True, traceback = True, lock = threading.RLock())
 
             for event in events[name]:
                 e.handle(event['handler'], priority = event['priority'])
@@ -102,14 +101,11 @@ def fireEvent(name, *args, **kwargs):
             # Fire
             result = e(*args, **kwargs)
 
-        result_keys = result.keys()
-        result_keys.sort(key = natsortKey)
-
         if options['single'] and not options['merge']:
             results = None
 
             # Loop over results, stop when first not None result is found.
-            for r_key in result_keys:
+            for r_key in sorted(result.iterkeys(), cmp = natcmp):
                 r = result[r_key]
                 if r[0] is True and r[1] is not None:
                     results = r[1]
@@ -121,7 +117,7 @@ def fireEvent(name, *args, **kwargs):
 
         else:
             results = []
-            for r_key in result_keys:
+            for r_key in sorted(result.iterkeys(), cmp = natcmp):
                 r = result[r_key]
                 if r[0] == True and r[1]:
                     results.append(r[1])
@@ -164,21 +160,18 @@ def fireEvent(name, *args, **kwargs):
     except Exception:
         log.error('%s: %s', (name, traceback.format_exc()))
 
-
 def fireEventAsync(*args, **kwargs):
     try:
         t = threading.Thread(target = fireEvent, args = args, kwargs = kwargs)
         t.setDaemon(True)
         t.start()
         return True
-    except Exception as e:
+    except Exception, e:
         log.error('%s: %s', (args[0], e))
-
 
 def errorHandler(error):
     etype, value, tb = error
     log.error(''.join(traceback.format_exception(etype, value, tb)))
-
 
 def getEvent(name):
     return events[name]

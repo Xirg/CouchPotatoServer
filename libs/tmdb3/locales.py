@@ -11,8 +11,7 @@ import locale
 
 syslocale = None
 
-
-class LocaleBase(object):
+class LocaleBase( object ):
     __slots__ = ['__immutable']
     _stored = {}
     fallthrough = False
@@ -25,21 +24,19 @@ class LocaleBase(object):
     def __setattr__(self, key, value):
         if getattr(self, '__immutable', False):
             raise NotImplementedError(self.__class__.__name__ +
-                                      ' does not support modification.')
+                                ' does not support modification.')
         super(LocaleBase, self).__setattr__(key, value)
 
     def __delattr__(self, key):
         if getattr(self, '__immutable', False):
             raise NotImplementedError(self.__class__.__name__ +
-                                      ' does not support modification.')
+                                ' does not support modification.')
         super(LocaleBase, self).__delattr__(key)
 
     def __lt__(self, other):
         return (id(self) != id(other)) and (str(self) > str(other))
-
     def __gt__(self, other):
         return (id(self) != id(other)) and (str(self) < str(other))
-
     def __eq__(self, other):
         return (id(self) == id(other)) or (str(self) == str(other))
 
@@ -51,10 +48,9 @@ class LocaleBase(object):
             return cls._stored[key.lower()]
         except:
             raise TMDBLocaleError("'{0}' is not a known valid {1} code."\
-                                  .format(key, cls.__name__))
+                                        .format(key, cls.__name__))
 
-
-class Language(LocaleBase):
+class Language( LocaleBase ):
     __slots__ = ['ISO639_1', 'ISO639_2', 'ISO639_2B', 'englishname',
                  'nativename']
     _stored = {}
@@ -73,13 +69,12 @@ class Language(LocaleBase):
     def __repr__(self):
         return u"<Language '{0.englishname}' ({0.ISO639_1})>".format(self)
 
-
-class Country(LocaleBase):
+class Country( LocaleBase ):
     __slots__ = ['alpha2', 'name']
     _stored = {}
 
     def __init__(self, alpha2, name):
-        self.alpha2 = alpha2
+        self.alpha2  = alpha2
         self.name = name
         super(Country, self).__init__(alpha2)
 
@@ -89,8 +84,7 @@ class Country(LocaleBase):
     def __repr__(self):
         return u"<Country '{0.name}' ({0.alpha2})>".format(self)
 
-
-class Locale(LocaleBase):
+class Locale( LocaleBase ):
     __slots__ = ['language', 'country', 'encoding']
 
     def __init__(self, language, country, encoding):
@@ -126,7 +120,6 @@ class Locale(LocaleBase):
             # just return unmodified and hope for the best
             return dat
 
-
 def set_locale(language=None, country=None, fallthrough=False):
     global syslocale
     LocaleBase.fallthrough = fallthrough
@@ -148,7 +141,6 @@ def set_locale(language=None, country=None, fallthrough=False):
             country = dat[1]
 
     syslocale = Locale(language, country, sysenc)
-
 
 def get_locale(language=-1, country=-1):
     """Output locale using provided attributes, or return system locale."""

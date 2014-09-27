@@ -1,5 +1,3 @@
-import os
-
 from couchpotato import index
 from couchpotato.api import addApiView
 from couchpotato.core.event import fireEvent, addEvent
@@ -8,14 +6,14 @@ from couchpotato.core.logger import CPLog
 from couchpotato.core.plugins.base import Plugin
 from couchpotato.environment import Env
 from tornado.web import RequestHandler
-
+import os
 
 log = CPLog(__name__)
 
 
 class Userscript(Plugin):
 
-    version = 5
+    version = 3
 
     def __init__(self):
         addApiView('userscript.get/(.*)/(.*)', self.getUserScript, static = True)
@@ -35,7 +33,7 @@ class Userscript(Plugin):
             'host': host,
         }
 
-        return self.renderTemplate(__file__, 'bookmark.js_tmpl', **params)
+        return self.renderTemplate(__file__, 'bookmark.js', **params)
 
     def getIncludes(self, **kwargs):
 
@@ -44,7 +42,7 @@ class Userscript(Plugin):
             'excludes': fireEvent('userscript.get_excludes', merge = True),
         }
 
-    def getUserScript(self, script_route, **kwargs):
+    def getUserScript(self, route, **kwargs):
 
         klass = self
 
@@ -60,12 +58,13 @@ class Userscript(Plugin):
                     'host': '%s://%s' % (self.request.protocol, self.request.headers.get('X-Forwarded-Host') or self.request.headers.get('host')),
                 }
 
-                script = klass.renderTemplate(__file__, 'template.js_tmpl', **params)
+                script = klass.renderTemplate(__file__, 'template.js', **params)
                 klass.createFile(os.path.join(Env.get('cache_dir'), 'couchpotato.user.js'), script)
 
                 self.redirect(Env.get('api_base') + 'file.cache/couchpotato.user.js')
 
-        Env.get('app').add_handlers(".*$", [('%s%s' % (Env.get('api_base'), script_route), UserscriptHandler)])
+        Env.get('app').add_handlers(".*$", [('%s%s' % (Env.get('api_base'), route), UserscriptHandler)])
+
 
     def getVersion(self):
 

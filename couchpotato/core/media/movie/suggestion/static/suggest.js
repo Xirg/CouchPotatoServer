@@ -42,10 +42,11 @@ var SuggestList = new Class({
 
 				}
 			}
-		});
-
-        var cookie_menu_select = Cookie.read('suggestions_charts_menu_selected');
-        if( cookie_menu_select === 'suggestions' || cookie_menu_select === null ) self.el.show(); else self.el.hide();
+		}).grab(
+			new Element('h2', {
+				'text': 'You might like these'
+			})
+		);
 
 		self.api_request = Api.request('suggestion.view', {
 			'onComplete': self.fill.bind(self)
@@ -100,7 +101,7 @@ var SuggestList = new Class({
 
 					// Add rating
 					m.info_container.adopt(
-						m.rating = m.info.rating && m.info.rating.imdb && m.info.rating.imdb.length == 2 && parseFloat(m.info.rating.imdb[0]) > 0  ? new Element('span.rating', {
+						m.rating = m.info.rating && m.info.rating.imdb.length == 2 && parseFloat(m.info.rating.imdb[0]) > 0  ? new Element('span.rating', {
 							'text': parseFloat(m.info.rating.imdb[0]),
 							'title': parseInt(m.info.rating.imdb[1]) + ' votes'
 						}) : null,
@@ -115,7 +116,7 @@ var SuggestList = new Class({
 								}
 							}
 						}) : null
-					);
+					)
 
 				$(m).inject(self.el);
 
@@ -149,4 +150,4 @@ var SuggestList = new Class({
 		return this.el;
 	}
 
-});
+})
