@@ -21,6 +21,7 @@ the server into multiple processes and managing subprocesses.
 from __future__ import absolute_import, division, print_function, with_statement
 
 import errno
+import multiprocessing
 import os
 import signal
 import subprocess
@@ -34,13 +35,6 @@ from tornado.iostream import PipeIOStream
 from tornado.log import gen_log
 from tornado.platform.auto import set_close_exec
 from tornado import stack_context
-from tornado.util import errno_from_exception
-
-try:
-    import multiprocessing
-except ImportError:
-    # Multiprocessing is not availble on Google App Engine.
-    multiprocessing = None
 
 try:
     long  # py2
@@ -50,8 +44,6 @@ except NameError:
 
 def cpu_count():
     """Returns the number of processors on this machine."""
-    if multiprocessing is None:
-        return 1
     try:
         return multiprocessing.cpu_count()
     except NotImplementedError:
@@ -144,7 +136,7 @@ def fork_processes(num_processes, max_restarts=100):
         try:
             pid, status = os.wait()
         except OSError as e:
-            if errno_from_exception(e) == errno.EINTR:
+            if e.errno == errno.EINTR:
                 continue
             raise
         if pid not in children:
@@ -291,7 +283,7 @@ class Subprocess(object):
         try:
             ret_pid, status = os.waitpid(pid, os.WNOHANG)
         except OSError as e:
-            if errno_from_exception(e) == errno.ECHILD:
+            if e.args[0] == errno.ECHILD:
                 return
         if ret_pid == 0:
             return

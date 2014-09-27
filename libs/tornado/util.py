@@ -12,17 +12,9 @@ and `.Resolver`.
 
 from __future__ import absolute_import, division, print_function, with_statement
 
-import array
 import inspect
-import os
 import sys
 import zlib
-
-
-try:
-    xrange  # py2
-except NameError:
-    xrange = range  # py3
 
 
 class ObjectDict(dict):
@@ -41,7 +33,7 @@ class ObjectDict(dict):
 class GzipDecompressor(object):
     """Streaming gzip decompressor.
 
-    The interface is like that of `zlib.decompressobj` (without some of the
+    The interface is like that of `zlib.decompressobj` (without the
     optional arguments, but it understands gzip headers and checksums.
     """
     def __init__(self):
@@ -50,24 +42,14 @@ class GzipDecompressor(object):
         # This works on cpython and pypy, but not jython.
         self.decompressobj = zlib.decompressobj(16 + zlib.MAX_WBITS)
 
-    def decompress(self, value, max_length=None):
+    def decompress(self, value):
         """Decompress a chunk, returning newly-available data.
 
         Some data may be buffered for later processing; `flush` must
         be called when there is no more input data to ensure that
         all data was processed.
-
-        If ``max_length`` is given, some input data may be left over
-        in ``unconsumed_tail``; you must retrieve this value and pass
-        it back to a future call to `decompress` if it is not empty.
         """
-        return self.decompressobj.decompress(value, max_length)
-
-    @property
-    def unconsumed_tail(self):
-        """Returns the unconsumed portion left over
-        """
-        return self.decompressobj.unconsumed_tail
+        return self.decompressobj.decompress(value)
 
     def flush(self):
         """Return any remaining buffered data not yet returned by decompress.
@@ -148,24 +130,6 @@ def exec_in(code, glob, loc=None):
         code = compile(code, '<string>', 'exec', dont_inherit=True)
     exec code in glob, loc
 """)
-
-
-def errno_from_exception(e):
-    """Provides the errno from an Exception object.
-
-    There are cases that the errno attribute was not set so we pull
-    the errno out of the args but if someone instatiates an Exception
-    without any args you will get a tuple error. So this function
-    abstracts all that behavior to give you a safe way to get the
-    errno.
-    """
-
-    if hasattr(e, 'errno'):
-        return e.errno
-    elif e.args:
-        return e.args[0]
-    else:
-        return None
 
 
 class Configurable(object):
@@ -279,16 +243,6 @@ class ArgReplacer(object):
             # Not a positional parameter
             self.arg_pos = None
 
-    def get_old_value(self, args, kwargs, default=None):
-        """Returns the old value of the named argument without replacing it.
-
-        Returns ``default`` if the argument is not present.
-        """
-        if self.arg_pos is not None and len(args) > self.arg_pos:
-            return args[self.arg_pos]
-        else:
-            return kwargs.get(self.name, default)
-
     def replace(self, new_value, args, kwargs):
         """Replace the named argument in ``args, kwargs`` with ``new_value``.
 
@@ -309,46 +263,6 @@ class ArgReplacer(object):
             old_value = kwargs.get(self.name)
             kwargs[self.name] = new_value
         return old_value, args, kwargs
-
-
-def timedelta_to_seconds(td):
-    """Equivalent to td.total_seconds() (introduced in python 2.7)."""
-    return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / float(10 ** 6)
-
-
-def _websocket_mask_python(mask, data):
-    """Websocket masking function.
-
-    `mask` is a `bytes` object of length 4; `data` is a `bytes` object of any length.
-    Returns a `bytes` object of the same length as `data` with the mask applied
-    as specified in section 5.3 of RFC 6455.
-
-    This pure-python implementation may be replaced by an optimized version when available.
-    """
-    mask = array.array("B", mask)
-    unmasked = array.array("B", data)
-    for i in xrange(len(data)):
-        unmasked[i] = unmasked[i] ^ mask[i % 4]
-    if hasattr(unmasked, 'tobytes'):
-        # tostring was deprecated in py32.  It hasn't been removed,
-        # but since we turn on deprecation warnings in our tests
-        # we need to use the right one.
-        return unmasked.tobytes()
-    else:
-        return unmasked.tostring()
-
-if (os.environ.get('TORNADO_NO_EXTENSION') or
-    os.environ.get('TORNADO_EXTENSION') == '0'):
-    # These environment variables exist to make it easier to do performance
-    # comparisons; they are not guaranteed to remain supported in the future.
-    _websocket_mask = _websocket_mask_python
-else:
-    try:
-        from tornado.speedups import websocket_mask as _websocket_mask
-    except ImportError:
-        if os.environ.get('TORNADO_EXTENSION') == '1':
-            raise
-        _websocket_mask = _websocket_mask_python
 
 
 def doctests():

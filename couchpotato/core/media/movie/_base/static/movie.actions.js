@@ -60,6 +60,22 @@ var MovieAction = new Class({
 				'z-index': '1'
 			}
 		}).inject(self.movie, 'top').fade('hide');
+		//self.positionMask();
+	},
+
+	positionMask: function(){
+		var self = this,
+			movie = $(self.movie),
+			s = movie.getSize()
+
+		return;
+
+		return self.mask.setStyles({
+			'width': s.x,
+			'height': s.y
+		}).position({
+			'relativeTo': movie
+		})
 	},
 
 	toElement: function(){
@@ -78,7 +94,7 @@ MA.IMDB = new Class({
 	create: function(){
 		var self = this;
 
-		self.id = self.movie.getIdentifier ? self.movie.getIdentifier() : self.get('imdb');
+		self.id = self.movie.get('imdb') || self.movie.get('identifier');
 
 		self.el = new Element('a.imdb', {
 			'title': 'Go to the IMDB page of ' + self.getTitle(),
@@ -105,25 +121,18 @@ MA.Release = new Class({
 			}
 		});
 
-		if(!self.movie.data.releases || self.movie.data.releases.length == 0)
-			self.el.hide();
+		if(self.movie.data.releases.length == 0)
+			self.el.hide()
 		else
 			self.showHelper();
 
 		App.on('movie.searcher.ended', function(notification){
-			if(self.movie.data._id != notification.data._id) return;
+			if(self.movie.data.id != notification.data.id) return;
 
 			self.releases = null;
 			if(self.options_container){
-				// Releases are currently displayed
-				if(self.options_container.isDisplayed()){
-					self.options_container.destroy();
-					self.createReleases();
-				}
-				else {
-					self.options_container.destroy();
-					self.options_container = null;
-				}
+				self.options_container.destroy();
+				self.options_container = null;
 			}
 		});
 
@@ -134,14 +143,37 @@ MA.Release = new Class({
 		if(e)
 			(e).preventDefault();
 
-		self.createReleases();
+		if(self.releases)
+			self.createReleases();
+		else {
+
+			self.movie.busy(true);
+
+			Api.request('release.for_movie', {
+				'data': {
+					'id': self.movie.data.id
+				},
+				'onComplete': function(json){
+					self.movie.busy(false, 1);
+
+					if(json && json.releases){
+						self.releases = json.releases;
+						self.createReleases();
+					}
+					else
+						alert('Something went wrong, check the logs.');
+				}
+			});
+
+		}
+
 
 	},
 
-	createReleases: function(refresh){
+	createReleases: function(){
 		var self = this;
 
-		if(!self.options_container || refresh){
+		if(!self.options_container){
 			self.options_container = new Element('div.options').grab(
 				self.release_container = new Element('div.releases.table')
 			);
@@ -155,102 +187,106 @@ MA.Release = new Class({
 				new Element('span.age', {'text': 'Age'}),
 				new Element('span.score', {'text': 'Score'}),
 				new Element('span.provider', {'text': 'Provider'})
-			).inject(self.release_container);
+			).inject(self.release_container)
 
-			if(self.movie.data.releases)
-				self.movie.data.releases.each(function(release){
+			self.releases.each(function(release){
 
-					var quality = Quality.getQuality(release.quality) || {},
-						info = release.info || {},
-						provider = self.get(release, 'provider') + (info['provider_extra'] ? self.get(release, 'provider_extra') : '');
+				var status = Status.get(release.status_id),
+					quality = Quality.getProfile(release.quality_id) || {},
+					info = release.info,
+					provider = self.get(release, 'provider') + (release.info['provider_extra'] ? self.get(release, 'provider_extra') : '');
+				release.status = status;
 
-					var release_name = self.get(release, 'name');
-					if(release.files && release.files.length > 0){
-						try {
-							var movie_file = release.files.filter(function(file){
-								var type = File.Type.get(file.type_id);
-								return type && type.identifier == 'movie'
-							}).pick();
-							release_name = movie_file.path.split(Api.getOption('path_sep')).getLast();
-						}
-						catch(e){}
+				var release_name = self.get(release, 'name');
+				if(release.files && release.files.length > 0){
+					try {
+						var movie_file = release.files.filter(function(file){
+							var type = File.Type.get(file.type_id);
+							return type && type.identifier == 'movie'
+						}).pick();
+						release_name = movie_file.path.split(Api.getOption('path_sep')).getLast();
 					}
+					catch(e){}
+				}
 
-					// Create release
-					release['el'] = new Element('div', {
-						'class': 'item '+release.status,
-						'id': 'release_'+release._id
-					}).adopt(
-						new Element('span.name', {'text': release_name, 'title': release_name}),
-						new Element('span.status', {'text': release.status, 'class': 'release_status '+release.status}),
-						new Element('span.quality', {'text': quality.label + (release.is_3d ? ' 3D' : '') || 'n/a'}),
-						new Element('span.size', {'text': info['size'] ? Math.floor(self.get(release, 'size')) : 'n/a'}),
-						new Element('span.age', {'text': self.get(release, 'age')}),
-						new Element('span.score', {'text': self.get(release, 'score')}),
-						new Element('span.provider', { 'text': provider, 'title': provider }),
-						info['detail_url'] ? new Element('a.info.icon2', {
-							'href': info['detail_url'],
-							'target': '_blank'
-						}) : new Element('a'),
-						new Element('a.download.icon2', {
-							'events': {
-								'click': function(e){
-									(e).preventDefault();
-									if(!this.hasClass('completed'))
-										self.download(release);
-								}
+				// Create release
+				var item = new Element('div', {
+					'class': 'item '+status.identifier,
+					'id': 'release_'+release.id
+				}).adopt(
+					new Element('span.name', {'text': release_name, 'title': release_name}),
+					new Element('span.status', {'text': status.identifier, 'class': 'release_status '+status.identifier}),
+					new Element('span.quality', {'text': quality.get('label') || 'n/a'}),
+					new Element('span.size', {'text': release.info['size'] ? Math.floor(self.get(release, 'size')) : 'n/a'}),
+					new Element('span.age', {'text': self.get(release, 'age')}),
+					new Element('span.score', {'text': self.get(release, 'score')}),
+					new Element('span.provider', { 'text': provider, 'title': provider }),
+					release.info['detail_url'] ? new Element('a.info.icon2', {
+						'href': release.info['detail_url'],
+						'target': '_blank'
+					}) : new Element('a'),
+					new Element('a.download.icon2', {
+						'events': {
+							'click': function(e){
+								(e).preventDefault();
+								if(!this.hasClass('completed'))
+									self.download(release);
 							}
-						}),
-						new Element('a.delete.icon2', {
-							'events': {
-								'click': function(e){
-									(e).preventDefault();
-									self.ignore(release);
-								}
-							}
-						})
-					).inject(self.release_container);
-
-					if(release.status == 'ignored' || release.status == 'failed' || release.status == 'snatched'){
-						if(!self.last_release || (self.last_release && self.last_release.status != 'snatched' && release.status == 'snatched'))
-							self.last_release = release;
-					}
-					else if(!self.next_release && release.status == 'available'){
-						self.next_release = release;
-					}
-
-					var update_handle = function(notification) {
-						if(notification.data._id != release._id) return;
-
-						var q = self.movie.quality.getElement('.q_' + release.quality),
-							new_status = notification.data.status;
-
-						release.el.set('class', 'item ' + new_status);
-
-						var status_el = release.el.getElement('.release_status');
-						status_el.set('class', 'release_status ' + new_status);
-						status_el.set('text', new_status);
-
-						if(!q && (new_status == 'snatched' || new_status == 'seeding' || new_status == 'done'))
-							q = self.addQuality(release.quality_id);
-
-						if(q && !q.hasClass(new_status)) {
-							q.removeClass(release.status).addClass(new_status);
-							q.set('title', q.get('title').replace(release.status, new_status));
 						}
-					};
+					}),
+					new Element('a.delete.icon2', {
+						'events': {
+							'click': function(e){
+								(e).preventDefault();
+								self.ignore(release);
+							}
+						}
+					})
+				).inject(self.release_container);
+				release['el'] = item;
 
-					App.on('release.update_status', update_handle);
+				if(status.identifier == 'ignored' || status.identifier == 'failed' || status.identifier == 'snatched'){
+					if(!self.last_release || (self.last_release && self.last_release.status.identifier != 'snatched' && status.identifier == 'snatched'))
+						self.last_release = release;
+				}
+				else if(!self.next_release && status.identifier == 'available'){
+					self.next_release = release;
+				}
 
-				});
+				var update_handle = function(notification) {
+					if(notification.data.id != release.id) return;
+
+					var q = self.movie.quality.getElement('.q_id' + release.quality_id),
+						status = Status.get(release.status_id),
+						new_status = Status.get(notification.data.status_id);
+
+					release.status_id = new_status.id
+					release.el.set('class', 'item ' + new_status.identifier);
+
+					var status_el = release.el.getElement('.release_status');
+					status_el.set('class', 'release_status ' + new_status.identifier);
+					status_el.set('text', new_status.identifier);
+
+					if(!q && (new_status.identifier == 'snatched' || new_status.identifier == 'seeding' || new_status.identifier == 'done'))
+						var q = self.addQuality(release.quality_id);
+
+					if(new_status && q && !q.hasClass(new_status.identifier)) {
+						q.removeClass(status.identifier).addClass(new_status.identifier);
+						q.set('title', q.get('title').replace(status.label, new_status.label));
+					}
+				}
+
+				App.on('release.update_status', update_handle);
+
+			});
 
 			if(self.last_release)
-				self.release_container.getElements('#release_'+self.last_release._id).addClass('last_release');
+				self.release_container.getElements('#release_'+self.last_release.id).addClass('last_release');
 
 			if(self.next_release)
-				self.release_container.getElements('#release_'+self.next_release._id).addClass('next_release');
+				self.release_container.getElements('#release_'+self.next_release.id).addClass('next_release');
 
-			if(self.next_release || (self.last_release && ['ignored', 'failed'].indexOf(self.last_release.status) === false)){
+			if(self.next_release || (self.last_release && ['ignored', 'failed'].indexOf(self.last_release.status.identifier) === false)){
 
 				self.trynext_container = new Element('div.buttons.try_container').inject(self.release_container, 'top');
 
@@ -259,7 +295,7 @@ MA.Release = new Class({
 
 				self.trynext_container.adopt(
 					new Element('span.or', {
-						'text': 'If anything went wrong, download'
+						'text': 'This movie is snatched, if anything went wrong, download'
 					}),
 					lr ? new Element('a.button.orange', {
 						'text': 'the same release again',
@@ -305,17 +341,18 @@ MA.Release = new Class({
 		var has_available = false,
 			has_snatched = false;
 
-		if(self.movie.data.releases)
-			self.movie.data.releases.each(function(release){
-				if(has_available && has_snatched) return;
+		self.movie.data.releases.each(function(release){
+			if(has_available && has_snatched) return;
 
-				if(['snatched', 'downloaded', 'seeding', 'done'].contains(release.status))
-					has_snatched = true;
+			var status = Status.get(release.status_id);
 
-				if(['available'].contains(release.status))
-					has_available = true;
+			if(['snatched', 'downloaded', 'seeding'].contains(status.identifier))
+				has_snatched = true;
 
-			});
+			if(['available'].contains(status.identifier))
+				has_available = true;
+
+		});
 
 		if(has_available || has_snatched){
 
@@ -348,13 +385,13 @@ MA.Release = new Class({
 	},
 
 	get: function(release, type){
-		return (release.info && release.info[type] !== undefined) ? release.info[type] : 'n/a'
+		return release.info[type] !== undefined ? release.info[type] : 'n/a'
 	},
 
 	download: function(release){
 		var self = this;
 
-		var release_el = self.release_container.getElement('#release_'+release._id),
+		var release_el = self.release_container.getElement('#release_'+release.id),
 			icon = release_el.getElement('.download.icon2');
 
 		if(icon)
@@ -362,7 +399,7 @@ MA.Release = new Class({
 
 		Api.request('release.manual_download', {
 			'data': {
-				'id': release._id
+				'id': release.id
 			},
 			'onComplete': function(json){
 				if(icon)
@@ -381,11 +418,12 @@ MA.Release = new Class({
 	},
 
 	ignore: function(release){
+		var self = this;
 
 		Api.request('release.ignore', {
 			'data': {
-				'id': release._id
-			}
+				'id': release.id
+			},
 		})
 
 	},
@@ -393,9 +431,9 @@ MA.Release = new Class({
 	markMovieDone: function(){
 		var self = this;
 
-		Api.request('media.delete', {
+		Api.request('movie.delete', {
 			'data': {
-				'id': self.movie.get('_id'),
+				'id': self.movie.get('id'),
 				'delete_from': 'wanted'
 			},
 			'onComplete': function(){
@@ -412,12 +450,12 @@ MA.Release = new Class({
 
 	},
 
-	tryNextRelease: function(){
+	tryNextRelease: function(movie_id){
 		var self = this;
 
 		Api.request('movie.searcher.try_next', {
 			'data': {
-				'media_id': self.movie.get('_id')
+				'id': self.movie.get('id')
 			}
 		});
 
@@ -445,7 +483,7 @@ MA.Trailer = new Class({
 	watch: function(offset){
 		var self = this;
 
-		var data_url = 'https://gdata.youtube.com/feeds/videos?vq="{title}" {year} trailer&max-results=1&alt=json-in-script&orderby=relevance&sortorder=descending&format=5&fmt=18';
+		var data_url = 'https://gdata.youtube.com/feeds/videos?vq="{title}" {year} trailer&max-results=1&alt=json-in-script&orderby=relevance&sortorder=descending&format=5&fmt=18'
 		var url = data_url.substitute({
 				'title': encodeURI(self.getTitle()),
 				'year': self.get('year'),
@@ -504,7 +542,7 @@ MA.Trailer = new Class({
 
 						}
 					}
-				};
+				}
 				self.player.addEventListener('onStateChange', change_quality);
 
 			}
@@ -521,7 +559,7 @@ MA.Trailer = new Class({
 		$(self.movie).setStyle('height', null);
 
 		setTimeout(function(){
-			self.container.destroy();
+			self.container.destroy()
 			self.close_button.destroy();
 		}, 1800)
 	}
@@ -572,13 +610,13 @@ MA.Edit = new Class({
 				)
 			).inject(self.movie, 'top');
 
-			Array.each(self.movie.data.info.titles, function(title){
+			Array.each(self.movie.data.library.titles, function(alt){
 				new Element('option', {
-					'text': title
+					'text': alt.title
 				}).inject(self.title_select);
 
-				if(title == self.movie.data.title)
-					self.title_select.set('value', title);
+				if(alt['default'])
+					self.title_select.set('value', alt.title);
 			});
 
 
@@ -591,14 +629,14 @@ MA.Edit = new Class({
 				self.category_select.show();
 				categories.each(function(category){
 
-					var category_id = category.data._id;
+					var category_id = category.data.id;
 
 					new Element('option', {
 						'value': category_id,
 						'text': category.data.label
 					}).inject(self.category_select);
 
-					if(self.movie.category && self.movie.category.data && self.movie.category.data._id == category_id)
+					if(self.movie.category && self.movie.category.data && self.movie.category.data.id == category_id)
 						self.category_select.set('value', category_id);
 
 				});
@@ -611,7 +649,7 @@ MA.Edit = new Class({
 
 			profiles.each(function(profile){
 
-				var profile_id = profile.get('_id');
+				var profile_id = profile.id ? profile.id : profile.data.id;
 
 				new Element('option', {
 					'value': profile_id,
@@ -634,7 +672,7 @@ MA.Edit = new Class({
 
 		Api.request('movie.edit', {
 			'data': {
-				'id': self.movie.get('_id'),
+				'id': self.movie.get('id'),
 				'default_title': self.title_select.get('value'),
 				'profile_id': self.profile_select.get('value'),
 				'category_id': self.category_select.get('value')
@@ -650,7 +688,7 @@ MA.Edit = new Class({
 		self.movie.slide('out');
 	}
 
-});
+})
 
 MA.Refresh = new Class({
 
@@ -674,7 +712,7 @@ MA.Refresh = new Class({
 
 		Api.request('media.refresh', {
 			'data': {
-				'id': self.movie.get('_id')
+				'id': self.movie.get('id')
 			}
 		});
 	}
@@ -688,10 +726,10 @@ MA.Readd = new Class({
 	create: function(){
 		var self = this;
 
-		var movie_done = self.movie.data.status == 'done';
-		if(self.movie.data.releases && !movie_done)
+		var movie_done = Status.get(self.movie.data.status_id).identifier == 'done';
+		if(!movie_done)
 			var snatched = self.movie.data.releases.filter(function(release){
-				return release.status && (release.status == 'snatched' || release.status == 'seeding' || release.status == 'downloaded' || release.status == 'done');
+				return release.status && (release.status.identifier == 'snatched' || release.status.identifier == 'downloaded' || release.status.identifier == 'done');
 			}).length;
 
 		if(movie_done || snatched && snatched > 0)
@@ -710,7 +748,7 @@ MA.Readd = new Class({
 
 		Api.request('movie.add', {
 			'data': {
-				'identifier': self.movie.getIdentifier(),
+				'identifier': self.movie.get('identifier'),
 				'ignore_previous': 1
 			}
 		});
@@ -783,9 +821,9 @@ MA.Delete = new Class({
 				self.callChain();
 			},
 			function(){
-				Api.request('media.delete', {
+				Api.request('movie.delete', {
 					'data': {
-						'id': self.movie.get('_id'),
+						'id': self.movie.get('id'),
 						'delete_from': self.movie.list.options.identifier
 					},
 					'onComplete': function(){
@@ -814,17 +852,46 @@ MA.Files = new Class({
 	create: function(){
 		var self = this;
 
-		if(self.movie.data.releases && self.movie.data.releases.length > 0)
-			self.el = new Element('a.directory', {
-				'title': 'Available files',
-				'events': {
-					'click': self.show.bind(self)
-				}
-			});
+		self.el = new Element('a.directory', {
+			'title': 'Available files',
+			'events': {
+				'click': self.show.bind(self)
+			}
+		});
 
 	},
 
-	show: function(){
+	show: function(e){
+		var self = this;
+		(e).preventDefault();
+
+		if(self.releases)
+			self.showFiles();
+		else {
+
+			self.movie.busy(true);
+
+			Api.request('release.for_movie', {
+				'data': {
+					'id': self.movie.data.id
+				},
+				'onComplete': function(json){
+					self.movie.busy(false, 1);
+
+					if(json && json.releases){
+						self.releases = json.releases;
+						self.showFiles();
+					}
+					else
+						alert('Something went wrong, check the logs.');
+				}
+			});
+
+		}
+
+	},
+
+	showFiles: function(){
 		var self = this;
 
 		if(!self.options_container){
@@ -835,26 +902,26 @@ MA.Files = new Class({
 			// Header
 			new Element('div.item.head').adopt(
 				new Element('span.name', {'text': 'File'}),
-				new Element('span.type', {'text': 'Type'})
-			).inject(self.files_container);
+				new Element('span.type', {'text': 'Type'}),
+				new Element('span.is_available', {'text': 'Available'})
+			).inject(self.files_container)
 
-			if(self.movie.data.releases)
-				Array.each(self.movie.data.releases, function(release){
-					var rel = new Element('div.release').inject(self.files_container);
+			Array.each(self.releases, function(release){
 
-					Object.each(release.files, function(files, type){
-						Array.each(files, function(file){
-							new Element('div.file.item').adopt(
-								new Element('span.name', {'text': file}),
-								new Element('span.type', {'text': type})
-							).inject(rel)
-						});
-					});
+				var rel = new Element('div.release').inject(self.files_container);
+
+				Array.each(release.files, function(file){
+					new Element('div.file.item').adopt(
+						new Element('span.name', {'text': file.path}),
+						new Element('span.type', {'text': File.Type.get(file.type_id).name}),
+						new Element('span.available', {'text': file.available})
+					).inject(rel)
 				});
+			});
 
 		}
 
 		self.movie.slide('in', self.options_container);
-	}
+	},
 
 });

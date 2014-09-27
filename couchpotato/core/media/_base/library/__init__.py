@@ -1,7 +1,13 @@
-from .main import Library
+from couchpotato.core.event import addEvent
+from couchpotato.core.plugins.base import Plugin
 
 
-def autoload():
-    return Library()
+class LibraryBase(Plugin):
 
-config = []
+    _type = None
+
+    def initType(self):
+        addEvent('library.types', self.getType)
+
+    def getType(self):
+        return self._type

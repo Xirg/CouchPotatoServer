@@ -1,5 +1,3 @@
-from urlparse import parse_qsl
-
 from couchpotato.api import addApiView
 from couchpotato.core.helpers.encoding import tryUrlencode
 from couchpotato.core.helpers.variable import cleanHost
@@ -7,8 +5,8 @@ from couchpotato.core.logger import CPLog
 from couchpotato.core.notifications.base import Notification
 from couchpotato.environment import Env
 from pytwitter import Api
+from urlparse import parse_qsl
 import oauth2
-
 
 log = CPLog(__name__)
 
@@ -66,7 +64,7 @@ class Twitter(Notification):
                         api.PostUpdate(update_message[135:] + ' 2/2')
                 else:
                     api.PostUpdate(update_message)
-        except Exception as e:
+        except Exception, e:
             log.error('Error sending tweet: %s', e)
             return False
 

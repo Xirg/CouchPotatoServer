@@ -1,5 +1,6 @@
 from .main import MediaPlugin
 
-
-def autoload():
+def start():
     return MediaPlugin()
+
+config = []
