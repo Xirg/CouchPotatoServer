@@ -1,16 +1,6 @@
-/*
----
-MooTools: the javascript framework
-
-web build:
- - http://mootools.net/more/0f75cfbac1aabbedaba7630beef8d10c
-
-packager build:
- - packager build More/Events.Pseudos More/Date More/Date.Extras More/Element.Forms More/Element.Position More/Element.Shortcuts More/Fx.Scroll More/Fx.Slide More/Sortables More/Request.JSONP More/Request.Periodical
-
-...
-*/
-
+// MooTools: the javascript framework.
+// Load this file's selection again by visiting: http://mootools.net/more/0f75cfbac1aabbedaba7630beef8d10c 
+// Or build this file again with packager using: packager build More/Events.Pseudos More/Date More/Date.Extras More/Element.Forms More/Element.Position More/Element.Shortcuts More/Fx.Scroll More/Fx.Slide More/Sortables More/Request.JSONP More/Request.Periodical
 /*
 ---
 
@@ -41,8 +31,8 @@ provides: [MooTools.More]
 */
 
 MooTools.More = {
-	version: '1.5.0',
-	build: '73db5e24e6e9c5c87b3a27aebef2248053f7db37'
+	'version': '1.4.0.1',
+	'build': 'a4244edf2aa97ac8a196fc96082dd35af1abab87'
 };
 
 
@@ -58,7 +48,7 @@ license: MIT-style license
 authors:
   - Arian Stolwijk
 
-requires: [Core/Class.Extras, Core/Slick.Parser, MooTools.More]
+requires: [Core/Class.Extras, Core/Slick.Parser, More/MooTools.More]
 
 provides: [Events.Pseudos]
 
@@ -221,7 +211,7 @@ authors:
 
 requires:
   - Core/Object
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Object.Extras]
 
@@ -290,8 +280,8 @@ authors:
 
 requires:
   - Core/Events
-  - Object.Extras
-  - MooTools.More
+  - /Object.Extras
+  - /MooTools.More
 
 provides: [Locale, Lang]
 
@@ -454,7 +444,7 @@ authors:
   - Aaron Newton
 
 requires:
-  - Locale
+  - /Locale
 
 provides: [Locale.en-US.Date]
 
@@ -1089,7 +1079,7 @@ authors:
   - Scott Kyle
 
 requires:
-  - Date
+  - /Date
 
 provides: [Date.Extras]
 
@@ -1245,8 +1235,10 @@ var special = {
 	'S': /[ŠŞŚ]/g,
 	't': /[ťţ]/g,
 	'T': /[ŤŢ]/g,
-	'u': /[ùúûůüµ]/g,
-	'U': /[ÙÚÛŮÜ]/g,
+	'ue': /[ü]/g,
+	'UE': /[Ü]/g,
+	'u': /[ùúûůµ]/g,
+	'U': /[ÙÚÛŮ]/g,
 	'y': /[ÿý]/g,
 	'Y': /[ŸÝ]/g,
 	'z': /[žźż]/g,
@@ -1271,16 +1263,7 @@ tidy = {
 	'-': /[\u2013]/g,
 //	'--': /[\u2014]/g,
 	'&raquo;': /[\uFFFD]/g
-},
-
-conversions = {
-	ms: 1,
-	s: 1000,
-	m: 6e4,
-	h: 36e5
-},
-
-findUnits = /(\d*.?\d+)([msh]+)/;
+};
 
 var walk = function(string, replacements){
 	var result = string, key;
@@ -1342,13 +1325,6 @@ String.implement({
 			if (trail) string += trail;
 		}
 		return string;
-	},
-
-	ms: function(){
-	  // "Borrowed" from https://gist.github.com/1503944
-		var units = findUnits.exec(this);
-		if (units == null) return Number(this);
-		return Number(units[1]) * conversions[units[2]];
 	}
 
 });
@@ -1372,8 +1348,8 @@ authors:
 
 requires:
   - Core/Element
-  - String.Extras
-  - MooTools.More
+  - /String.Extras
+  - /MooTools.More
 
 provides: [Element.Forms]
 
@@ -1517,7 +1493,7 @@ authors:
 requires:
   - Core/Element.Style
   - Core/Element.Dimensions
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Element.Measure]
 
@@ -1734,15 +1710,13 @@ var local = Element.Position = {
 	},
 
 	setOffsetOption: function(element, options){
-		var parentOffset = {x: 0, y: 0};
-		var parentScroll = {x: 0, y: 0};
-		var offsetParent = element.measure(function(){
-			return document.id(this.getOffsetParent());
-		});
+		var parentOffset = {x: 0, y: 0},
+			offsetParent = element.measure(function(){
+				return document.id(this.getOffsetParent());
+			}),
+			parentScroll = offsetParent.getScroll();
 
 		if (!offsetParent || offsetParent == element.getDocument().body) return;
-
-		parentScroll = offsetParent.getScroll();
 		parentOffset = offsetParent.measure(function(){
 			var position = this.getPosition();
 			if (this.getStyle('position') == 'fixed'){
@@ -1922,7 +1896,7 @@ authors:
 
 requires:
   - Core/Element.Style
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Element.Shortcuts]
 
@@ -2002,7 +1976,7 @@ requires:
   - Core/Fx
   - Core/Element.Event
   - Core/Element.Dimensions
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Fx.Scroll]
 
@@ -2040,6 +2014,7 @@ Fx.Scroll = new Class({
 
 	set: function(){
 		var now = Array.flatten(arguments);
+		if (Browser.firefox) now = [Math.round(now[0]), Math.round(now[1])]; // not needed anymore in newer firefox versions
 		this.element.scrollTo(now[0], now[1]);
 		return this;
 	},
@@ -2173,7 +2148,7 @@ authors:
 requires:
   - Core/Fx
   - Core/Element.Style
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Fx.Slide]
 
@@ -2350,7 +2325,7 @@ requires:
   - Core/Element.Event
   - Core/Element.Style
   - Core/Element.Dimensions
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Drag]
 ...
@@ -2396,10 +2371,10 @@ var Drag = new Class({
 		this.mouse = {'now': {}, 'pos': {}};
 		this.value = {'start': {}, 'now': {}};
 
-		this.selection = 'selectstart' in document ? 'selectstart' : 'mousedown';
+		this.selection = (Browser.ie) ? 'selectstart' : 'mousedown';
 
 
-		if ('ondragstart' in document && !('FileReader' in window) && !Drag.ondragstartFixed){
+		if (Browser.ie && !Drag.ondragstartFixed){
 			document.ondragstart = Function.from(false);
 			Drag.ondragstartFixed = true;
 		}
@@ -2584,7 +2559,7 @@ authors:
 
 requires:
   - Core/Element.Dimensions
-  - Drag
+  - /Drag
 
 provides: [Drag.Move]
 
@@ -2611,7 +2586,10 @@ Drag.Move = new Class({
 		element = this.element;
 
 		this.droppables = $$(this.options.droppables);
-		this.setContainer(this.options.container);
+		this.container = document.id(this.options.container);
+
+		if (this.container && typeOf(this.container) != 'element')
+			this.container = document.id(this.container.getDocument().body);
 
 		if (this.options.style){
 			if (this.options.modifiers.x == 'left' && this.options.modifiers.y == 'top'){
@@ -2627,13 +2605,6 @@ Drag.Move = new Class({
 
 		this.addEvent('start', this.checkDroppables, true);
 		this.overed = null;
-	},
-	
-	setContainer: function(container) {
-		this.container = document.id(container);
-		if (this.container && typeOf(this.container) != 'element'){
-			this.container = document.id(this.container.getDocument().body);
-		}
 	},
 
 	start: function(event){
@@ -2699,9 +2670,7 @@ Drag.Move = new Class({
 
 			if (container != offsetParent){
 				left += containerMargin.left + offsetParentPadding.left;
-				if (!offsetParentPadding.left && left < 0) left = 0;
-				top += offsetParent == document.body ? 0 : containerMargin.top + offsetParentPadding.top;
-				if (!offsetParentPadding.top && top < 0) top = 0;
+				top += ((Browser.ie6 || Browser.ie7) ? 0 : containerMargin.top) + offsetParentPadding.top;
 			}
 		} else {
 			left -= elementMargin.left;
@@ -2785,7 +2754,7 @@ authors:
 
 requires:
   - Core/Fx.Morph
-  - Drag.Move
+  - /Drag.Move
 
 provides: [Sortables]
 
@@ -2804,8 +2773,7 @@ var Sortables = new Class({
 		clone: false,
 		revert: false,
 		handle: false,
-		dragOptions: {},
-		unDraggableTags: ['button', 'input', 'a', 'textarea', 'select', 'option']
+		dragOptions: {}
 	},
 
 	initialize: function(lists, options){
@@ -2871,24 +2839,6 @@ var Sortables = new Class({
 			return list;
 		}, this));
 	},
-    
-	getDroppableCoordinates: function (element){
-		var offsetParent = element.getOffsetParent();
-		var position = element.getPosition(offsetParent);
-		var scroll = {
-			w: window.getScroll(),
-			offsetParent: offsetParent.getScroll()
-		};
-		position.x += scroll.offsetParent.x;
-		position.y += scroll.offsetParent.y;
-
-		if (offsetParent.getStyle('position') == 'fixed'){
-			position.x -= scroll.w.x;
-			position.y -= scroll.w.y;
-		}
-
-        return position;
-	},
 
 	getClone: function(event, element){
 		if (!this.options.clone) return new Element(element.tagName).inject(document.body);
@@ -2909,7 +2859,7 @@ var Sortables = new Class({
 			});
 		}
 
-		return clone.inject(this.list).setPosition(this.getDroppableCoordinates(this.element));
+		return clone.inject(this.list).setPosition(element.getPosition(element.getOffsetParent()));
 	},
 
 	getDroppables: function(){
@@ -2934,7 +2884,7 @@ var Sortables = new Class({
 		if (
 			!this.idle ||
 			event.rightClick ||
-			(!this.options.handle && this.options.unDraggableTags.contains(event.target.get('tag')))
+			['button', 'input', 'a', 'textarea'].contains(event.target.get('tag'))
 		) return;
 
 		this.idle = false;
@@ -2965,16 +2915,14 @@ var Sortables = new Class({
 	end: function(){
 		this.drag.detach();
 		this.element.setStyle('opacity', this.opacity);
-		var self = this;
 		if (this.effect){
 			var dim = this.element.getStyles('width', 'height'),
 				clone = this.clone,
-				pos = clone.computePosition(this.getDroppableCoordinates(clone));
+				pos = clone.computePosition(this.element.getPosition(this.clone.getOffsetParent()));
 
 			var destroy = function(){
 				this.removeEvent('cancel', destroy);
 				clone.destroy();
-				self.reset();
 			};
 
 			this.effect.element = clone;
@@ -2987,9 +2935,8 @@ var Sortables = new Class({
 			}).addEvent('cancel', destroy).chain(destroy);
 		} else {
 			this.clone.destroy();
-			self.reset();
 		}
-		
+		this.reset();
 	},
 
 	reset: function(){
@@ -3178,7 +3125,7 @@ authors:
 
 requires:
   - Core/Request
-  - MooTools.More
+  - /MooTools.More
 
 provides: [Request.Periodical]
 

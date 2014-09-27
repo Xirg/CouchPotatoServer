@@ -1,7 +1,6 @@
 from .main import Searcher
 
-
-def autoload():
+def start():
     return Searcher()
 
 config = [{
@@ -69,26 +68,6 @@ config = [{
                     'default': 1500,
                     'type': 'int',
                     'unit': 'days'
-                },
-            ],
-        },
-    ],
-}, {
-    'name': 'torrent',
-    'groups': [
-        {
-            'tab': 'searcher',
-            'name': 'searcher',
-            'wizard': True,
-            'options': [
-                {
-                    'name': 'minimum_seeders',
-                    'advanced': True,
-                    'label': 'Minimum seeders',
-                    'description': 'Ignore torrents with seeders below this number',
-                    'default': 1,
-                    'type': 'int',
-                    'unit': 'seeders'
                 },
             ],
         },

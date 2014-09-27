@@ -1,5 +1,6 @@
 from .main import ProfilePlugin
 
-
-def autoload():
+def start():
     return ProfilePlugin()
+
+config = []

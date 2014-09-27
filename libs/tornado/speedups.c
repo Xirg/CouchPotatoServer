@@ -1,24 +1,21 @@
-#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 static PyObject* websocket_mask(PyObject* self, PyObject* args) {
     const char* mask;
-    Py_ssize_t mask_len;
+    int mask_len;
     const char* data;
-    Py_ssize_t data_len;
-    Py_ssize_t i;
-    PyObject* result;
-    char* buf;
+    int data_len;
+    int i;
 
     if (!PyArg_ParseTuple(args, "s#s#", &mask, &mask_len, &data, &data_len)) {
         return NULL;
     }
 
-    result = PyBytes_FromStringAndSize(NULL, data_len);
+    PyObject* result = PyBytes_FromStringAndSize(NULL, data_len);
     if (!result) {
         return NULL;
     }
-    buf = PyBytes_AsString(result);
+    char* buf = PyBytes_AsString(result);
     for (i = 0; i < data_len; i++) {
         buf[i] = data[i] ^ mask[i % 4];
     }

@@ -1,14 +1,11 @@
-import os
-import re
-import traceback
-
 from couchpotato.api import addApiView
 from couchpotato.core.helpers.encoding import toUnicode
-from couchpotato.core.helpers.variable import tryInt, splitString
+from couchpotato.core.helpers.variable import tryInt
 from couchpotato.core.logger import CPLog
 from couchpotato.core.plugins.base import Plugin
 from couchpotato.environment import Env
-
+import os
+import traceback
 
 log = CPLog(__name__)
 
@@ -23,11 +20,7 @@ class Logging(Plugin):
             },
             'return': {'type': 'object', 'example': """{
     'success': True,
-    'log': [{
-        'time': '03-12 09:12:59',
-        'type': 'INFO',
-        'message': 'Log message'
-    }, ..], //Log file
+    'log': string, //Log file
     'total': int, //Total log files available
 }"""}
         })
@@ -39,11 +32,7 @@ class Logging(Plugin):
             },
             'return': {'type': 'object', 'example': """{
     'success': True,
-    'log': [{
-        'time': '03-12 09:12:59',
-        'type': 'INFO',
-        'message': 'Log message'
-    }, ..]
+    'log': string, //Log file
 }"""}
         })
         addApiView('logging.clear', self.clear, docs = {
@@ -53,7 +42,7 @@ class Logging(Plugin):
             'desc': 'Log errors',
             'params': {
                 'type': {'desc': 'Type of logging, default "error"'},
-                '**kwargs': {'type': 'object', 'desc': 'All other params will be printed in the log string.'},
+                '**kwargs': {'type':'object', 'desc': 'All other params will be printed in the log string.'},
             }
         })
 
@@ -76,22 +65,20 @@ class Logging(Plugin):
             if x is nr:
                 current_path = path
 
-        log_content = ''
+        log = ''
         if current_path:
             f = open(current_path, 'r')
-            log_content = f.read()
-        logs = self.toList(log_content)
+            log = f.read()
 
         return {
             'success': True,
-            'log': logs,
+            'log': toUnicode(log),
             'total': total,
         }
 
-    def partial(self, type = 'all', lines = 30, offset = 0, **kwargs):
+    def partial(self, type = 'all', lines = 30, **kwargs):
 
         total_lines = tryInt(lines)
-        offset = tryInt(offset)
 
         log_lines = []
 
@@ -104,56 +91,27 @@ class Logging(Plugin):
                 break
 
             f = open(path, 'r')
-            log_content = toUnicode(f.read())
-            raw_lines = self.toList(log_content)
-            raw_lines.reverse()
+            reversed_lines = toUnicode(f.read()).split('[0m\n')
+            reversed_lines.reverse()
 
             brk = False
-            for line in raw_lines:
+            for line in reversed_lines:
 
-                if type == 'all' or line.get('type') == type.upper():
+                if type == 'all' or '%s ' % type.upper() in line:
                     log_lines.append(line)
 
-                if len(log_lines) >= (total_lines + offset):
+                if len(log_lines) >= total_lines:
                     brk = True
                     break
 
             if brk:
                 break
 
-        log_lines = log_lines[offset:]
         log_lines.reverse()
-
         return {
             'success': True,
-            'log': log_lines,
+            'log': '[0m\n'.join(log_lines),
         }
-
-    def toList(self, log_content = ''):
-
-        logs_raw = toUnicode(log_content).split('[0m\n')
-
-        logs = []
-        for log_line in logs_raw:
-            split = splitString(log_line, '\x1b')
-            if split:
-                try:
-                    date, time, log_type = splitString(split[0], ' ')
-                    timestamp = '%s %s' % (date, time)
-                except:
-                    timestamp = 'UNKNOWN'
-                    log_type = 'UNKNOWN'
-
-                message = ''.join(split[1]) if len(split) > 1 else split[0]
-                message = re.sub('\[\d+m\[', '[', message)
-
-                logs.append({
-                    'time': timestamp,
-                    'type': log_type,
-                    'message': message
-                })
-
-        return logs
 
     def clear(self, **kwargs):
 

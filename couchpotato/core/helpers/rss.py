@@ -1,10 +1,7 @@
+from couchpotato.core.logger import CPLog
 import xml.etree.ElementTree as XMLTree
 
-from couchpotato.core.logger import CPLog
-
-
 log = CPLog(__name__)
-
 
 class RSS(object):
 
@@ -49,6 +46,6 @@ class RSS(object):
     def getItems(self, data, path = 'channel/item'):
         try:
             return XMLTree.parse(data).findall(path)
-        except Exception as e:
+        except Exception, e:
             log.error('Error parsing RSS. %s', e)
             return []

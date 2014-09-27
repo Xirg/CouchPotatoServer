@@ -1,5 +1,6 @@
 from .main import QualityPlugin
 
-
-def autoload():
+def start():
     return QualityPlugin()
+
+config = []

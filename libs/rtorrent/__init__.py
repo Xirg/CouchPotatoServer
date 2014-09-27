@@ -22,8 +22,8 @@ import os.path
 import time
 import xmlrpclib
 
-from rtorrent.common import find_torrent, join_uri, \
-    update_uri, is_valid_port, convert_version_tuple_to_str
+from rtorrent.common import find_torrent, \
+    is_valid_port, convert_version_tuple_to_str
 from rtorrent.lib.torrentparser import TorrentParser
 from rtorrent.lib.xmlrpc.http import HTTPServerProxy
 from rtorrent.lib.xmlrpc.scgi import SCGIServerProxy
@@ -48,18 +48,18 @@ class RTorrent:
 
     def __init__(self, uri, username=None, password=None,
                  verify=False, sp=None, sp_kwargs=None):
-        self.uri = self._transform_uri(uri)  # : From X{__init__(self, url)}
+        self.uri = uri  # : From X{__init__(self, url)}
 
         self.username = username
         self.password = password
 
-        self.scheme = urllib.splittype(self.uri)[0]
+        self.schema = urllib.splittype(uri)[0]
 
         if sp:
             self.sp = sp
-        elif self.scheme in ['http', 'https']:
+        elif self.schema in ['http', 'https']:
             self.sp = HTTPServerProxy
-        elif self.scheme == 'scgi':
+        elif self.schema == 'scgi':
             self.sp = SCGIServerProxy
         else:
             raise NotImplementedError()
@@ -74,31 +74,15 @@ class RTorrent:
         if verify is True:
             self._verify_conn()
 
-    def _transform_uri(self, uri):
-        scheme = urllib.splittype(uri)[0]
-
-        if scheme == 'httprpc' or scheme.startswith('httprpc+'):
-            # Try find HTTPRPC transport (token after '+' in 'httprpc+https'), otherwise assume HTTP
-            transport = scheme[scheme.index('+') + 1:] if '+' in scheme else 'http'
-
-            # Transform URI with new path and scheme
-            uri = join_uri(uri, 'plugins/httprpc/action.php', construct=False)
-            return update_uri(uri, scheme=transport)
-
-        return uri
-
     def _get_conn(self):
         """Get ServerProxy instance"""
-
-        if self.username and self.password:
-            if self.scheme == 'scgi':
+        if self.username is not None and self.password is not None:
+            if self.schema == 'scgi':
                 raise NotImplementedError()
-
-            secure = self.scheme == 'https'
 
             return self.sp(
                 self.uri,
-                transport=BasicAuthTransport(secure, self.username, self.password),
+                transport=BasicAuthTransport(self.username, self.password),
                 **self.sp_kwargs
             )
 
@@ -113,13 +97,6 @@ class RTorrent:
         assert self._meets_version_requirement() is True,\
             "Error: Minimum rTorrent version required is {0}".format(
             MIN_RTORRENT_VERSION_STR)
-
-    def test_connection(self):
-        try:
-            self._verify_conn()
-        except:
-            return False
-        return True
 
     def _meets_version_requirement(self):
         return self._get_client_version_tuple() >= MIN_RTORRENT_VERSION
@@ -222,7 +199,7 @@ class RTorrent:
 
         return(func_name)
 
-    def load_torrent(self, torrent, start=False, verbose=False, verify_load=True, verify_retries=3):
+    def load_torrent(self, torrent, start=False, verbose=False, verify_load=True):
         """
         Loads torrent into rTorrent (with various enhancements)
 
@@ -267,8 +244,9 @@ class RTorrent:
         getattr(p, func_name)(torrent)
 
         if verify_load:
+            MAX_RETRIES = 3
             i = 0
-            while i < verify_retries:
+            while i < MAX_RETRIES:
                 self.get_torrents()
                 if info_hash in [t.info_hash for t in self.torrents]:
                     break

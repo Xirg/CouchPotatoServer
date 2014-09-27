@@ -2,7 +2,6 @@ Page.Userscript = new Class({
 
 	Extends: PageBase,
 
-	order: 80,
 	name: 'userscript',
 	has_tab: false,
 
@@ -13,7 +12,7 @@ Page.Userscript = new Class({
 		}
 	},
 
-	indexAction: function(){
+	indexAction: function(param){
 		var self = this;
 
 		self.el.adopt(
@@ -54,28 +53,28 @@ var UserscriptSettingTab = new Class({
 	initialize: function(){
 		var self = this;
 
-		App.addEvent('loadSettings', self.addSettings.bind(self))
+		App.addEvent('load', self.addSettings.bind(self))
 
 	},
 
 	addSettings: function(){
 		var self = this;
 
-		self.settings = App.getPage('Settings');
+		self.settings = App.getPage('Settings')
 		self.settings.addEvent('create', function(){
 
 			var host_url = window.location.protocol + '//' + window.location.host;
 
 			self.settings.createGroup({
 				'name': 'userscript',
-				'label': 'Install the browser extension or bookmarklet',
+				'label': 'Install the bookmarklet or userscript',
 				'description': 'Easily add movies via imdb.com, appletrailers and more'
 			}).inject(self.settings.tabs.automation.content, 'top').adopt(
 				new Element('a.userscript.button', {
-					'text': 'Install extension',
-					'href': 'https://couchpota.to/extension/',
+					'text': 'Install userscript',
+					'href': Api.createUrl('userscript.get')+randomString()+'/couchpotato.user.js',
 					'target': '_blank'
-				}),
+				}), 
 				new Element('span.or[text=or]'),
 				new Element('span.bookmarklet').adopt(
 					new Element('a.button.green', {
@@ -87,7 +86,7 @@ var UserscriptSettingTab = new Class({
 						'target': '',
 						'events': {
 							'click': function(e){
-								(e).stop();
+								(e).stop()
 								alert('Drag it to your bookmark ;)')
 							}
 						}
@@ -97,7 +96,7 @@ var UserscriptSettingTab = new Class({
 					})
 				)
 			).setStyles({
-				'background-image': "url('https://couchpota.to/media/images/userscript.gif')"
+				'background-image': "url('"+App.createUrl('static/plugin/userscript/userscript.png')+"')"
 			});
 
 		});
